@@ -1,0 +1,106 @@
+---
+title: "An insight on the diamonds dataset"
+author: "Hugo Villanúa Vega"
+date: "24 de enero de 2016"
+output: html_document
+---
+
+Recently I started taking a course on Data Analysis with R from [Udacity](https://www.udacity.com). During the first three lessons I started wrangling with the default datasets to extract insights for the proposed exercises.
+One that caught my attention was the diamonds dataset so I decided to perform further analysis on it to see what could I learn from it.
+
+First of all we are going to load the diamonds dataset, acquaintance ourselves with the information provided by the dataset and take a quick look at some basic visualizations to get a general sense of what we are dealing with.
+
+```{r}
+library(ggplot2)
+library(plyr)
+data(diamonds)
+diamonds$clarity <- ordered(diamonds$clarity, levels = c("I1", "SI1", "SI2", "VS1", "VS2", "VVS1", "VVS2", "IF"))
+diamonds$color <- ordered(diamonds$color, levels = c("J", "I", "H", "G", "F", "E", "D"))
+names(diamonds)
+summary(diamonds)
+
+ggplot(aes(x = price), data = diamonds) +
+  geom_histogram(binwidth = 100, color = 'black', fill = '#099DD9') +
+  scale_x_continuous(breaks = seq(0, round_any(max(diamonds$price), 1000, f = ceiling), 1000))
+```
+
+As we can seem the histogram is highly skewed, as is often the case with monetary variables so we are going to compress the variable by using a log scale.
+
+```{r}
+ggplot(aes(x = price), data = diamonds) +
+  geom_histogram(binwidth = .01, color = 'black', fill = '#099DD9') +
+  scale_x_log10()
+```
+
+Now we can appreciate signs of a bimodal distribution. This probably means that there are two kind of buyers.
+The "poor buyer" which only buys diamonds because of the social construct of buying engagement rings. The "rich buyers" which can afford spending more money on buying diamonds, although the purpose of this will not exclusively be for engagement purposes.
+
+Now we will look at the value of diamonds plotted against carat weight.
+
+```{r}
+ggplot(aes(x = carat, y = price), data = diamonds) +
+  geom_point()
+```
+
+We can appreciate that low carat diamonds have smaller variances than high carat diamonds. This is probably due to the same reason we mentioned earlier, "poor buyers" have a tighter budget so it appears to be a competitive market. On the other hand as the carat increases, the nature of the buyer becomes different, as his budget is not as retrained as the previous ones, so it makes sense that we can see more variance on the higher end diamonds.
+Another thing to notice is that the relation between these two variables is not linear, it looks like an exponential function. This is probably due to the difficulty of naturally finding bigger diamonds with few flaws and high quality in general.
+Since we have a lot of points, and most of the diamonds weight less than 3 carats we will change the plot to make it easier to read, as well as adding the log scale to the price axis.
+
+```{r warning=FALSE}
+ggplot(aes(x = carat, y = price), data = diamonds) +
+  geom_point(alpha = .35, size = .25, position="jitter") +
+  scale_x_continuous(breaks = seq(0, 3, .5), limits = c(0, 3)) +
+  scale_y_log10(breaks = c(500, 1000, 2000, 6000, 10000, 15000))
+```
+
+Let's look at cut, color and clarity.
+```{r}
+library(gridExtra)
+
+p1 <- ggplot(aes(x = cut, y = price), data = diamonds) + 
+  geom_boxplot()
+p2 <- ggplot(aes(x = clarity, y = price), data = diamonds) + 
+  geom_boxplot()
+p3 <- ggplot(aes(x = color, y = price), data = diamonds) + 
+  geom_boxplot()
+grid.arrange(p1, p2, p3, ncol = 1)
+```
+
+Here we can get an interesting insight on these three variables. We would expect the price of the diamond to increase for a better quality on any of these attributes, but actually we can see the opposite happening. This is probably driven by the same reasons mentioned earlier. Carat weight seems to be the dominant variable responsible for the price of a diamond, as well as the fact that bigger diamonds with high quality are harder to come by.
+We can also appreciate that clarity seems to have many outliers (specially for VVS1 and IF), while color seems to have fewer and cut having the least amount.
+
+Let's break down the previous scatterplot based on the three variables and fit some linear regressions.
+
+```{r warning=FALSE}
+reg = lm(formula = price ~ carat, data = diamonds)
+summary(reg)$r.squared
+reg = lm(formula = price ~ clarity + carat, data = diamonds)
+summary(reg)$r.squared
+reg = lm(formula = price ~ cut + carat, data = diamonds)
+summary(reg)$r.squared
+reg = lm(formula = price ~ color + carat, data = diamonds)
+summary(reg)$r.squared
+ggplot(aes(x = carat, y = price, color = cut), data = diamonds) +
+  geom_point(alpha = .35, size = .35, position="jitter") +
+  scale_x_continuous(breaks = seq(0, 3, .5), limits = c(0, 3)) +
+  scale_y_log10(breaks = c(500, 1000, 2000, 6000, 10000, 15000)) +
+  guides(colour = guide_legend(override.aes = list(size=5)))
+ggplot(aes(x = carat, y = price, color = clarity), data = diamonds) +
+  geom_point(alpha = .35, size = .35, position="jitter") +
+  scale_x_continuous(breaks = seq(0, 3, .5), limits = c(0, 3)) +
+  scale_y_log10(breaks = c(500, 1000, 2000, 6000, 10000, 15000)) +
+  guides(colour = guide_legend(override.aes = list(size=5)))
+ggplot(aes(x = carat, y = price, color = color), data = diamonds) +
+  geom_point(alpha = .35, size = .35, position="jitter") +
+  scale_x_continuous(breaks = seq(0, 3, .5), limits = c(0, 3)) +
+  scale_y_log10(breaks = c(500, 1000, 2000, 6000, 10000, 15000)) +
+  guides(colour = guide_legend(override.aes = list(size=5)))
+```
+
+Looking at the plots we can clearly appreciate that clarity explains a lot of the variance in price. Color does as well explain a part of the variance in price, but less than clarity. Lastly, cut doesn't seem to have much influence on price since most of the points for each type of cut are evenly spread.
+Since it is possible that there is not enough data for other type of cuts (most of them seem to be Premium, Ideal or Very Good), we can not completely prove such claim.
+The linear regressions show that there is indeed an improvement on the R squared value when using clarity, color does improve the regression as well but in a subtler way, while cut does not make a noticeable improvement.
+
+To wrap up, with the data from the diamonds dataset we can conclude that the carat of a diamond is the variable that drives the price, having signs of being an exponential growth. The other important variable to consider is clarity, while color and cut do not seem to affect the price as much. Although these variables do not make a significant difference on cheaper diamonds market.
+
+More work could be done to further investigate the diamonds market, mainly using up to date information about diamonds, since the original dataset uses data extracted from <http://www.diamondse.info/> collected in 2008.
